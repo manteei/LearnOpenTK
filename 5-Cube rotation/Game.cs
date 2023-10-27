@@ -1,0 +1,189 @@
+﻿using OpenTK.Windowing.Common;
+using OpenTK.Windowing.Desktop;
+using OpenTK.Windowing.GraphicsLibraryFramework;
+using OpenTK.Graphics.OpenGL4;
+using OpenTK.Mathematics;
+using System.Reflection;
+
+
+namespace LearnOpenTK
+{
+    public class Game : GameWindow
+    {
+        float[] vertices = {
+        -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
+         0.5f, -0.5f, -0.5f,  1.0f, 0.0f,
+         0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+         0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+        -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
+        -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
+
+        -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+         0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
+         0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
+         0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
+        -0.5f,  0.5f,  0.5f,  0.0f, 1.0f,
+        -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+
+        -0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+        -0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+        -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+        -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+        -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+        -0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+
+         0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+         0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+         0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+         0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+         0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+         0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+
+        -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+         0.5f, -0.5f, -0.5f,  1.0f, 1.0f,
+         0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
+         0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
+        -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+        -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+
+        -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
+         0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+         0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+         0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+        -0.5f,  0.5f,  0.5f,  0.0f, 0.0f,
+        -0.5f,  0.5f, -0.5f,  0.0f, 1.0f
+    };
+        private readonly uint[] indices =
+        {
+            // Note that indices start at 0!
+            0, 1, 3, // The first triangle will be the top-right half of the triangle
+            1, 2, 3  // Then the second will be the bottom-left half of the triangle
+        };
+
+        int VertexBufferObject;
+
+        int VertexArrayObject;
+
+        int ElementBufferObject;
+
+        Shader shader;
+        Texture texture;
+
+        private double time;
+        private Matrix4 view;
+        private Matrix4 projection;
+
+        public Game(int width, int height, string title) : base(GameWindowSettings.Default, new NativeWindowSettings() { Size = (width, height), Title = title })
+        {
+        }
+        protected override void OnLoad()
+        {
+            base.OnLoad();
+
+            GL.ClearColor(0.5f, 1.0f, 0.7f, 1.0f); // Белый цвет фона
+
+            GL.Enable(EnableCap.DepthTest);
+
+            VertexArrayObject = GL.GenVertexArray();
+            GL.BindVertexArray(VertexArrayObject);
+
+            VertexBufferObject = GL.GenBuffer();
+            GL.BindBuffer(BufferTarget.ArrayBuffer, VertexBufferObject);
+            GL.BufferData(BufferTarget.ArrayBuffer, vertices.Length * sizeof(float), vertices, BufferUsageHint.StaticDraw);
+
+            ElementBufferObject = GL.GenBuffer();
+            GL.BindBuffer(BufferTarget.ElementArrayBuffer, ElementBufferObject);
+            GL.BufferData(BufferTarget.ElementArrayBuffer, indices.Length * sizeof(uint), indices, BufferUsageHint.StaticDraw);
+
+
+            shader = new Shader("shader.vert", "shader.frag");
+            shader.Use();
+
+
+            var vertexLocation = shader.GetAttribLocation("aPosition");
+            GL.EnableVertexAttribArray(vertexLocation);
+            GL.VertexAttribPointer(vertexLocation, 3, VertexAttribPointerType.Float, false, 5 * sizeof(float), 0);
+
+            int texCoordLocation = shader.GetAttribLocation("aTexCoord");
+            GL.EnableVertexAttribArray(texCoordLocation);
+            GL.VertexAttribPointer(texCoordLocation, 2, VertexAttribPointerType.Float, false, 5 * sizeof(float), 3 * sizeof(float));
+
+            texture = Texture.LoadFromFile("Resources/container.png");
+            texture.Use(TextureUnit.Texture0);
+            view = Matrix4.CreateTranslation(0.0f, 0.0f, -3.0f);
+             projection = Matrix4.CreatePerspectiveFieldOfView(MathHelper.DegreesToRadians(45.0f), Size.X / (float)Size.Y, 0.1f, 100.0f);
+
+        }
+
+
+
+        protected override void OnRenderFrame(FrameEventArgs e)
+        {
+            base.OnRenderFrame(e);
+
+            GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
+
+            // Activate the VAO
+            GL.BindVertexArray(VertexArrayObject);
+
+            time += 300.0 * e.Time;
+
+            texture.Use(TextureUnit.Texture0);
+            // Activate the shader
+             var model = Matrix4.CreateRotationX((float)MathHelper.DegreesToRadians(time));
+             
+            
+
+            // Next, we scale the matrix. This will make the rectangle slightly larger.
+
+
+            // Then, we translate the matrix, which will move it slightly towards the top-right.
+            // Note that we aren't using a full coordinate system yet, so the translation is in normalized device coordinates.
+            // The next tutorial will be about how to set one up so we can use more human-readable numbers.
+
+
+            texture.Use(TextureUnit.Texture0);
+            shader.Use();
+
+            // Now that the matrix is finished, pass it to the vertex shader.
+            // Go over to shader.vert to see how we finally apply this to the vertices.
+            shader.SetMatrix4("model", model);
+            shader.SetMatrix4("view", view);
+            shader.SetMatrix4("projection", projection);
+
+            // Render the square using the EBO
+            GL.DrawArrays(PrimitiveType.Triangles, 0, 36);
+
+            SwapBuffers();
+        }
+
+        protected override void OnUpdateFrame(FrameEventArgs e)
+        {
+            base.OnUpdateFrame(e);
+
+            if (KeyboardState.IsKeyDown(Keys.Escape))
+            {
+                Close();
+            }
+        }
+
+
+
+        protected override void OnResize(ResizeEventArgs e)
+        {
+            base.OnResize(e);
+
+            GL.Viewport(0, 0, e.Width, e.Height);
+        }
+
+        protected override void OnUnload()
+        {
+            base.OnUnload();
+            GL.DeleteBuffer(VertexBufferObject);
+            GL.DeleteBuffer(ElementBufferObject);
+            GL.DeleteVertexArray(VertexArrayObject);
+           // GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
+
+        }
+    }
+}
